@@ -9,6 +9,7 @@ namespace GZip
         private readonly Queue<T> queue;
         private readonly int capacity;
         private bool isDisposed;
+        private bool isFinished;
         private readonly object lockObject;
 
         public BlockingQueue(int capacity)
@@ -16,6 +17,7 @@ namespace GZip
             this.capacity = capacity;
             queue = new Queue<T>(capacity);
             isDisposed = false;
+            isFinished = false;
             lockObject = new object();
         }
 
@@ -39,14 +41,25 @@ namespace GZip
             value = default;
             lock (lockObject)
             {
-                while (!isDisposed && queue.Count == 0)
+                while (!isDisposed && !isFinished && queue.Count == 0)
                     Monitor.Wait(lockObject);
                 if (isDisposed)
+                    return false;
+                if (isFinished && queue.Count == 0)
                     return false;
 
                 value = queue.Dequeue();
                 Monitor.Pulse(lockObject);
                 return true;
+            }
+        }
+
+        public void Finish()
+        {
+            lock (lockObject)
+            {
+                isFinished = true;
+                Monitor.PulseAll(lockObject);
             }
         }
 
