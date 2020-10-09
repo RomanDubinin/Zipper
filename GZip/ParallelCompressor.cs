@@ -11,8 +11,8 @@ namespace GZip
         private readonly int compressorsNumber;
         private readonly int blockSize;
 
-        private readonly MemoryStream inputStream;
-        private readonly MemoryStream outputStream;
+        private readonly Stream inputStream;
+        private readonly Stream outputStream;
 
         private readonly BlockingQueue<DataBlock> inputQueue;
         private readonly BlockingQueue<DataBlock> outputQueue;
@@ -21,7 +21,7 @@ namespace GZip
 
         private readonly byte[] compressorHeader;
 
-        public ParallelCompressor(int compressorsNumber, int blockSize, MemoryStream inputStream, MemoryStream outputStream, byte[] compressorHeader)
+        public ParallelCompressor(int compressorsNumber, int blockSize, Stream inputStream, Stream outputStream, byte[] compressorHeader)
         {
             this.compressorsNumber = compressorsNumber;
             this.blockSize = blockSize;
