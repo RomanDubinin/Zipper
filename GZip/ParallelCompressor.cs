@@ -18,6 +18,7 @@ namespace GZip
         private readonly BlockingQueue<DataBlock> inputQueue;
         private readonly BlockingQueue<DataBlock> outputQueue;
 
+        private readonly ObjectPool<DataBlock> dataBlocksPool;
         private readonly ArrayPool<byte> byteArrayPool;
 
         private readonly Compressor compressor;
@@ -36,6 +37,7 @@ namespace GZip
             inputQueue = new BlockingQueue<DataBlock>(compressorsNumber);
             outputQueue = new BlockingQueue<DataBlock>(compressorsNumber);
 
+            dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
             byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, compressorsNumber * 2);
 
             compressor = new Compressor();
@@ -84,9 +86,12 @@ namespace GZip
             for (var i = 0; i < blocksCount; i++)
             {
                 var data = byteArrayPool.Rent(blockSize);
-                var blockLen = inputStream.Read(data, 0, blockSize);
+                var blockLength = inputStream.Read(data, 0, blockSize);
 
-                var dataBlock = new DataBlock {Data = data, Length = blockLen, Number = i};
+                var dataBlock = dataBlocksPool.Get();
+                dataBlock.Data = data;
+                dataBlock.Length = blockLength;
+                dataBlock.Number = i;
                 inputQueue.Enqueue(dataBlock);
             }
             inputQueue.Finish();
@@ -114,7 +119,10 @@ namespace GZip
                 var data = byteArrayPool.Rent(blockLength);
                 inputStream.Read(data, 0, blockLength);
 
-                var dataBlock = new DataBlock {Data = data, Length = blockLength, Number = blockNumber};
+                var dataBlock = dataBlocksPool.Get();
+                dataBlock.Data = data;
+                dataBlock.Length = blockLength;
+                dataBlock.Number = blockNumber;
                 inputQueue.Enqueue(dataBlock);
             }
             inputQueue.Finish();
@@ -171,6 +179,7 @@ namespace GZip
                     outputStream.Write(currentBlock.Data, 0, currentBlock.Length);
                     dict.Remove(blockNumber);
                     byteArrayPool.Return(currentBlock.Data);
+                    dataBlocksPool.Return(currentBlock);
                     blockNumber++;
                 }
             }
@@ -181,6 +190,7 @@ namespace GZip
                 outputStream.Write(BitConverter.GetBytes(dataBlock.Length));
                 outputStream.Write(dataBlock.Data, 0, dataBlock.Length);
                 byteArrayPool.Return(dataBlock.Data);
+                dataBlocksPool.Return(dataBlock);
             }
             outputStream.Flush();
         }
@@ -198,8 +208,9 @@ namespace GZip
                 {
                     var currentBlock = dict[blockNumber];
                     outputStream.Write(currentBlock.Data, 0, currentBlock.Length);
-                    byteArrayPool.Return(currentBlock.Data);
                     dict.Remove(blockNumber);
+                    byteArrayPool.Return(currentBlock.Data);
+                    dataBlocksPool.Return(currentBlock);
                     blockNumber++;
                 }
             }
@@ -208,6 +219,7 @@ namespace GZip
             {
                 outputStream.Write(dataBlock.Data, 0, dataBlock.Length);
                 byteArrayPool.Return(dataBlock.Data);
+                dataBlocksPool.Return(dataBlock);
             }
             outputStream.Flush();
         }
