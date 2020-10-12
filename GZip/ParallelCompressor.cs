@@ -25,6 +25,8 @@ namespace GZip
 
         private readonly byte[] compressorHeader;
 
+        private readonly ThreadRunner threadRunner;
+
         public ParallelCompressor(int compressorsNumber, int blockSize, Stream inputStream, Stream outputStream, byte[] compressorHeader)
         {
             this.compressorsNumber = compressorsNumber;
@@ -41,6 +43,8 @@ namespace GZip
             byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, compressorsNumber * 2);
 
             compressor = new Compressor();
+
+            threadRunner = new ThreadRunner(OnException);
         }
 
         public void CompressParallel()
@@ -53,25 +57,30 @@ namespace GZip
             DoParallel(ReadCompressed, DoDecompress, WriteDecompressed);
         }
 
+        public List<Exception> GetRaisedExceptions()
+        {
+            return threadRunner.Exceptions.ToList();
+        }
+
         private void DoParallel(ThreadStart read, ThreadStart doJob, ThreadStart write)
         {
-            var readThread = new Thread(read);
+            var readThread = threadRunner.RunWithExceptionHandling(read);
             var compressors = new Thread[compressorsNumber];
-            for (int i = 0; i < compressorsNumber; i++)
+            for (var i = 0; i < compressorsNumber; i++)
             {
-                compressors[i] = new Thread(doJob);
+                compressors[i] = threadRunner.RunWithExceptionHandling(doJob);
             }
-            var writeThread = new Thread(write);
+            var writeThread = threadRunner.RunWithExceptionHandling(write);
 
             readThread.Start();
-            for (int i = 0; i < compressorsNumber; i++)
+            for (var i = 0; i < compressorsNumber; i++)
             {
                 compressors[i].Start();
             }
             writeThread.Start();
 
             readThread.Join();
-            for (int i = 0; i < compressorsNumber; i++)
+            for (var i = 0; i < compressorsNumber; i++)
             {
                 compressors[i].Join();
             }
@@ -222,6 +231,14 @@ namespace GZip
                 dataBlocksPool.Return(dataBlock);
             }
             outputStream.Flush();
+        }
+
+        private void OnException()
+        {
+            inputQueue.Finish();
+            outputQueue.Finish();
+            inputStream.Close();
+            outputStream.Close();
         }
     }
 }

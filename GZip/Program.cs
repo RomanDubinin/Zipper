@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -6,6 +7,9 @@ namespace GZip
 {
     class Program
     {
+        private static readonly string logFileName = "Log.txt";
+        private static readonly Type[] knownExceptions = new[] {typeof(InvalidDataException)};
+
         private static readonly string compressCommand = "compress";
         private static readonly string decompressCommand = "decompress";
         private static readonly string[] availableCommands = {compressCommand, decompressCommand};
@@ -43,8 +47,45 @@ namespace GZip
             if (command == decompressCommand)
                 compressor.DecompressParallel();
 
+            inputStream.Close();
+            outputStream.Close();
+
+            var exceptions = compressor.GetRaisedExceptions();
+            if (exceptions.Any())
+            {
+                File.Delete(outputFile);
+                WriteExceptionToLog(exceptions);
+                PrintErrorMessage(exceptions);
+                return 1;
+            }
+
             Console.WriteLine("Done");
             return 0;
+        }
+
+        private static void PrintErrorMessage(List<Exception> exceptions)
+        {
+            var exceptionsToPrint = exceptions
+                .Where(a => knownExceptions.Contains(a.GetType()))
+                .Select(x => x.Message)
+                .ToArray();
+            var messageToPrint = exceptionsToPrint.Any()
+                ? $"\n\tOperation was failed:\n{string.Join('\n', exceptionsToPrint)}."
+                : $"\n\tOperation was failed\nPlease contact the author and send him {logFileName} file";
+            Console.WriteLine(messageToPrint);
+        }
+
+        private static void WriteExceptionToLog(List<Exception> exceptions)
+        {
+            File.Delete(logFileName);
+            foreach (var exception in exceptions)
+            {
+                File.AppendAllText(logFileName, exception.GetType() + "\n");
+                File.AppendAllText(logFileName, exception.Message + "\n");
+                File.AppendAllText(logFileName, exception.Source + "\n");
+                File.AppendAllText(logFileName, exception.StackTrace + "\n");
+                File.AppendAllText(logFileName, "\n");
+            }
         }
 
         private static (string error, string command, string inputFile, string outputFile) ParseCommandLineArguments(string[] args)
