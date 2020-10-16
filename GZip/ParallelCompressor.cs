@@ -44,7 +44,7 @@ namespace GZip
 
             compressor = new Compressor();
 
-            threadRunner = new ThreadRunner(OnException);
+            threadRunner = new ThreadRunner();
         }
 
         public void CompressParallel()
@@ -64,13 +64,13 @@ namespace GZip
 
         private void DoParallel(ThreadStart read, ThreadStart doJob, ThreadStart write)
         {
-            var readThread = threadRunner.RunWithExceptionHandling(read);
+            var readThread = threadRunner.RunWithExceptionHandling(read, OnException);
             var compressors = new Thread[compressorsNumber];
             for (var i = 0; i < compressorsNumber; i++)
             {
-                compressors[i] = threadRunner.RunWithExceptionHandling(doJob);
+                compressors[i] = threadRunner.RunWithExceptionHandling(doJob, OnException);
             }
-            var writeThread = threadRunner.RunWithExceptionHandling(write);
+            var writeThread = threadRunner.RunWithExceptionHandling(write, OnException);
 
             readThread.Start();
             for (var i = 0; i < compressorsNumber; i++)

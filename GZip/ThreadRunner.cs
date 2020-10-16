@@ -8,15 +8,12 @@ namespace GZip
     {
         public readonly ConcurrentBag<Exception> Exceptions;
 
-        private readonly Action onException;
-
-        public ThreadRunner(Action onException)
+        public ThreadRunner()
         {
-            this.onException = onException;
             Exceptions = new ConcurrentBag<Exception>();
         }
 
-        public Thread RunWithExceptionHandling(ThreadStart action)
+        public Thread RunWithExceptionHandling(ThreadStart action, Action onException)
         {
             return new Thread(() =>
             {
