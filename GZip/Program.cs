@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -40,17 +41,37 @@ namespace GZip
             var inputStream = new FileStream(inputFile, FileMode.Open);
             var outputStream = new FileStream(outputFile, FileMode.Create);
 
-            var compressor = new ParallelCompressor(coresNumber, blockSize, inputStream, outputStream, header);
+            var inputQueue = new BlockingQueue<DataBlock>(coresNumber);
+            var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
+
+            var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
+            var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
+
+            var compressor = new Compressor();
+            var threadRunner = new ThreadRunner();
+
+            var parallelCompressor = new ParallelCompressor(
+                coresNumber,
+                blockSize,
+                inputStream,
+                outputStream,
+                header,
+                inputQueue,
+                outputQueue,
+                dataBlocksPool,
+                byteArrayPool,
+                compressor,
+                threadRunner);
 
             if (command == compressCommand)
-                compressor.CompressParallel();
+                parallelCompressor.CompressParallel();
             if (command == decompressCommand)
-                compressor.DecompressParallel();
+                parallelCompressor.DecompressParallel();
 
             inputStream.Close();
             outputStream.Close();
 
-            var exceptions = compressor.GetRaisedExceptions();
+            var exceptions = parallelCompressor.GetRaisedExceptions();
             if (exceptions.Any())
             {
                 File.Delete(outputFile);

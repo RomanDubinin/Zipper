@@ -27,24 +27,29 @@ namespace GZip
 
         private readonly ThreadRunner threadRunner;
 
-        public ParallelCompressor(int compressorsNumber, int blockSize, Stream inputStream, Stream outputStream, byte[] compressorHeader)
+        public ParallelCompressor(int compressorsNumber, 
+                                  int blockSize,
+                                  Stream inputStream,
+                                  Stream outputStream,
+                                  byte[] compressorHeader,
+                                  BlockingQueue<DataBlock> inputQueue,
+                                  BlockingQueue<DataBlock> outputQueue,
+                                  ObjectPool<DataBlock> dataBlocksPool,
+                                  ArrayPool<byte> byteArrayPool,
+                                  Compressor compressor,
+                                  ThreadRunner threadRunner)
         {
             this.compressorsNumber = compressorsNumber;
             this.blockSize = blockSize;
-
             this.inputStream = inputStream;
             this.outputStream = outputStream;
             this.compressorHeader = compressorHeader;
-
-            inputQueue = new BlockingQueue<DataBlock>(compressorsNumber);
-            outputQueue = new BlockingQueue<DataBlock>(compressorsNumber);
-
-            dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
-            byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, compressorsNumber * 2);
-
-            compressor = new Compressor();
-
-            threadRunner = new ThreadRunner();
+            this.inputQueue = inputQueue;
+            this.outputQueue = outputQueue;
+            this.dataBlocksPool = dataBlocksPool;
+            this.byteArrayPool = byteArrayPool;
+            this.compressor = compressor;
+            this.threadRunner = threadRunner;
         }
 
         public void CompressParallel()
