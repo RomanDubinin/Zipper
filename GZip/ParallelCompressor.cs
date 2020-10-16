@@ -52,14 +52,14 @@ namespace GZip
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
-            DoParallel(ReadUncompressed, DoCompress, WriteCompressed);
+            DoParallel(ReadUncompressed, DoCompress, AfterCompress, WriteCompressed);
         }
 
         public void DecompressParallel(Stream inputStream, Stream outputStream)
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
-            DoParallel(ReadCompressed, DoDecompress, WriteDecompressed);
+            DoParallel(ReadCompressed, DoDecompress, AfterDecompress, WriteDecompressed);
         }
 
         public List<Exception> GetRaisedExceptions()
@@ -67,7 +67,7 @@ namespace GZip
             return threadRunner.Exceptions.ToList();
         }
 
-        private void DoParallel(ThreadStart read, ThreadStart doJob, ThreadStart write)
+        private void DoParallel(ThreadStart read, ThreadStart doJob, Action afterAllJobs, ThreadStart write)
         {
             var readThread = threadRunner.RunWithExceptionHandling(read, OnException);
             var compressors = new Thread[compressorsNumber];
@@ -89,7 +89,7 @@ namespace GZip
             {
                 compressors[i].Join();
             }
-            outputQueue.Finish();
+            afterAllJobs();
             writeThread.Join();
         }
 
@@ -165,6 +165,11 @@ namespace GZip
             }
         }
 
+        private void AfterCompress()
+        {
+            outputQueue.Finish();
+        }
+
         private void DoDecompress()
         {
             while (inputQueue.Dequeue(out var dataBlock))
@@ -177,6 +182,11 @@ namespace GZip
                 if (!outputQueue.Enqueue(dataBlock))
                     return;
             }
+        }
+
+        private void AfterDecompress()
+        {
+            outputQueue.Finish();
         }
 
         private void WriteCompressed()
