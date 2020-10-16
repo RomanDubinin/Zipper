@@ -53,8 +53,6 @@ namespace GZip
             var parallelCompressor = new ParallelCompressor(
                 coresNumber,
                 blockSize,
-                inputStream,
-                outputStream,
                 header,
                 inputQueue,
                 outputQueue,
@@ -64,9 +62,9 @@ namespace GZip
                 threadRunner);
 
             if (command == compressCommand)
-                parallelCompressor.CompressParallel();
+                parallelCompressor.CompressParallel(inputStream, outputStream);
             if (command == decompressCommand)
-                parallelCompressor.DecompressParallel();
+                parallelCompressor.DecompressParallel(inputStream, outputStream);
 
             inputStream.Close();
             outputStream.Close();

@@ -19,20 +19,20 @@ namespace GZip.UnitTests
 
             var inputStreamForCompression = new MemoryStream(originalData);
             var outputStreamForCompression = new MemoryStream();
-            var parallelCompressor = MakeParallelCompressor(3, blockSize, inputStreamForCompression, outputStreamForCompression, header);
-            parallelCompressor.CompressParallel();
+            var parallelCompressor = MakeParallelCompressor(3, blockSize, header);
+            parallelCompressor.CompressParallel(inputStreamForCompression, outputStreamForCompression);
             var compressedData = outputStreamForCompression.ToArray();
 
             var inputStreamForDecompression = new MemoryStream(compressedData);
             var outputStreamForDecompression = new MemoryStream();
-            var decompressor = MakeParallelCompressor(4, blockSize, inputStreamForDecompression, outputStreamForDecompression, header);
-            decompressor.DecompressParallel();
+            var decompressor = MakeParallelCompressor(4, blockSize, header);
+            decompressor.DecompressParallel(inputStreamForDecompression, outputStreamForDecompression);
             var decompressedData = outputStreamForDecompression.ToArray();
 
             Assert.AreEqual(originalData, decompressedData);
         }
 
-        private ParallelCompressor MakeParallelCompressor(int coresNumber, int blockSize, MemoryStream inputStreamForCompression, MemoryStream outputStreamForCompression, byte[] header)
+        private ParallelCompressor MakeParallelCompressor(int coresNumber, int blockSize, byte[] header)
         {
             var inputQueue = new BlockingQueue<DataBlock>(coresNumber);
             var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
@@ -40,7 +40,7 @@ namespace GZip.UnitTests
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
             var compressor = new Compressor();
             var threadRunner = new ThreadRunner();
-            return new ParallelCompressor(coresNumber, blockSize, inputStreamForCompression, outputStreamForCompression, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor, threadRunner);
+            return new ParallelCompressor(coresNumber, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor, threadRunner);
         }
     }
 }
