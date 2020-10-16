@@ -15,16 +15,6 @@ namespace GZip.UnitTests
         [Test]
         [TestCase(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9})]
         [TestCase(new byte[] { })]
-        public void Test(byte[] originalData)
-        {
-            var compressed = compressor.Compress(originalData, originalData.Length);
-            var decompressed = compressor.Decompress(compressed, compressed.Length);
-            Assert.AreEqual(originalData, decompressed);
-        }
-
-        [Test]
-        [TestCase(new byte[] {1, 2, 3, 4, 5, 6, 7, 8, 9})]
-        [TestCase(new byte[] { })]
         public void TestCompressAndDecompress(byte[] originalData)
         {
             var compressed = new byte[100];
