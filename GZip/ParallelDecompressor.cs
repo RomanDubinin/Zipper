@@ -6,10 +6,8 @@ using System.Linq;
 
 namespace GZip
 {
-    public class ParallelCompressor : IPartiallyParallelizableJob
+    public class ParallelDecompressor : IPartiallyParallelizableJob
     {
-        private readonly int blockSize;
-
         private readonly Stream inputStream;
         private readonly Stream outputStream;
 
@@ -23,20 +21,17 @@ namespace GZip
 
         private readonly byte[] compressorHeader;
 
-
-        public ParallelCompressor(Stream inputStream,
-                                  Stream outputStream,
-                                  int blockSize,
-                                  byte[] compressorHeader,
-                                  BlockingQueue<DataBlock> inputQueue,
-                                  BlockingQueue<DataBlock> outputQueue,
-                                  ObjectPool<DataBlock> dataBlocksPool,
-                                  ArrayPool<byte> byteArrayPool,
-                                  Compressor compressor)
+        public ParallelDecompressor(Stream inputStream,
+            Stream outputStream,
+            byte[] compressorHeader,
+            BlockingQueue<DataBlock> inputQueue,
+            BlockingQueue<DataBlock> outputQueue,
+            ObjectPool<DataBlock> dataBlocksPool,
+            ArrayPool<byte> byteArrayPool,
+            Compressor compressor)
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
-            this.blockSize = blockSize;
             this.compressorHeader = compressorHeader;
             this.inputQueue = inputQueue;
             this.outputQueue = outputQueue;
@@ -47,17 +42,39 @@ namespace GZip
 
         public void JobStart()
         {
-            var blocksCount = inputStream.Length / blockSize +
-                              (inputStream.Length % blockSize == 0 ? 0 : 1);
+            var header = new byte[compressorHeader.Length];
+            inputStream.Read(header, 0, compressorHeader.Length);
+            if (!header.SequenceEqual(compressorHeader))
+                throw new InvalidDataException("The archive entry was compressed using an unsupported compression method");
+
+            var blocksCountBytes = new byte[sizeof(long)];
+            inputStream.Read(blocksCountBytes, 0, sizeof(long));
+            var blocksCount = BitConverter.ToInt64(blocksCountBytes);
+
+            var blockNumberBytes = new byte[sizeof(int)];
+            var blockLengthBytes = new byte[sizeof(int)];
+            var blockHashCodeBytes = new byte[sizeof(int)];
             for (var i = 0; i < blocksCount; i++)
             {
-                var data = byteArrayPool.Rent(blockSize);
-                var blockLength = inputStream.Read(data, 0, blockSize);
+                inputStream.Read(blockNumberBytes, 0, blockNumberBytes.Length);
+                var blockNumber = BitConverter.ToInt32(blockNumberBytes);
+
+                inputStream.Read(blockLengthBytes, 0, blockLengthBytes.Length);
+                var blockLength = BitConverter.ToInt32(blockLengthBytes);
+
+                var data = byteArrayPool.Rent(blockLength);
+                inputStream.Read(data, 0, blockLength);
+
+                inputStream.Read(blockHashCodeBytes, 0, blockHashCodeBytes.Length);
+                var blockHashCode = BitConverter.ToInt32(blockHashCodeBytes);
 
                 var dataBlock = dataBlocksPool.Get();
                 dataBlock.Data = data;
                 dataBlock.Length = blockLength;
-                dataBlock.Number = i;
+                dataBlock.Number = blockNumber;
+                if (HashCalculator.GetDataBlockHashCode(dataBlock.Data, dataBlock.Length, dataBlock.Number) != blockHashCode)
+                    throw new InvalidDataException("The archive entry was compressed using an unsupported compression method");
+
                 inputQueue.Enqueue(dataBlock);
             }
             inputQueue.Finish();
@@ -68,7 +85,7 @@ namespace GZip
             while (inputQueue.Dequeue(out var dataBlock))
             {
                 var compressedData = byteArrayPool.Rent(dataBlock.Length * 2);
-                var compressedDataLen = compressor.Compress(dataBlock.Data, dataBlock.Length, compressedData);
+                var compressedDataLen = compressor.Decompress(dataBlock.Data, dataBlock.Length, compressedData);
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlock.Data = compressedData;
                 dataBlock.Length = compressedDataLen;
@@ -86,24 +103,15 @@ namespace GZip
         {
             var dict = new Dictionary<int, DataBlock>();
             int blockNumber = 0;
-            var blocksCount = inputStream.Length / blockSize +
-                              (inputStream.Length % blockSize == 0 ? 0 : 1);
-
-            outputStream.Write(compressorHeader);
-            outputStream.Write(BitConverter.GetBytes(blocksCount));
 
             while (outputQueue.Dequeue(out var dataBlock))
             {
                 dict.Add(dataBlock.Number, dataBlock);
 
-                //todo remove order
                 if (dict.ContainsKey(blockNumber))
                 {
                     var currentBlock = dict[blockNumber];
-                    outputStream.Write(BitConverter.GetBytes(currentBlock.Number));
-                    outputStream.Write(BitConverter.GetBytes(currentBlock.Length));
                     outputStream.Write(currentBlock.Data, 0, currentBlock.Length);
-                    outputStream.Write(BitConverter.GetBytes(HashCalculator.GetDataBlockHashCode(currentBlock.Data, currentBlock.Length, currentBlock.Number)));
                     dict.Remove(blockNumber);
                     byteArrayPool.Return(currentBlock.Data);
                     dataBlocksPool.Return(currentBlock);
@@ -113,11 +121,8 @@ namespace GZip
 
             foreach (var dataBlock in dict.OrderBy(x => x.Key).Select(x => x.Value))
             {
-                outputStream.Write(BitConverter.GetBytes(dataBlock.Number));
-                outputStream.Write(BitConverter.GetBytes(dataBlock.Length));
                 outputStream.Write(dataBlock.Data, 0, dataBlock.Length);
                 byteArrayPool.Return(dataBlock.Data);
-                outputStream.Write(BitConverter.GetBytes(HashCalculator.GetDataBlockHashCode(dataBlock.Data, dataBlock.Length, dataBlock.Number)));
                 dataBlocksPool.Return(dataBlock);
             }
             outputStream.Flush();

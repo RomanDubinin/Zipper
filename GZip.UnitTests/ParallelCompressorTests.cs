@@ -17,30 +17,45 @@ namespace GZip.UnitTests
             random.NextBytes(originalData);
             var blockSize = 1024;
 
+            var threadRunner = new ThreadRunner();
+            var jobRunner = new JobRunner(3, threadRunner);
             var inputStreamForCompression = new MemoryStream(originalData);
             var outputStreamForCompression = new MemoryStream();
-            var parallelCompressor = MakeParallelCompressor(3, blockSize, header);
-            parallelCompressor.CompressParallel(inputStreamForCompression, outputStreamForCompression);
+            var parallelCompressor = MakeParallelCompressor(3, blockSize, header, inputStreamForCompression, outputStreamForCompression);
+
+            jobRunner.RunParallel(parallelCompressor);
+
             var compressedData = outputStreamForCompression.ToArray();
 
             var inputStreamForDecompression = new MemoryStream(compressedData);
             var outputStreamForDecompression = new MemoryStream();
-            var decompressor = MakeParallelCompressor(4, blockSize, header);
-            decompressor.DecompressParallel(inputStreamForDecompression, outputStreamForDecompression);
+            var decompressor = MakeParallelDecompressor(4, blockSize, header, inputStreamForDecompression, outputStreamForDecompression);
+            jobRunner.RunParallel(decompressor);
             var decompressedData = outputStreamForDecompression.ToArray();
 
             Assert.AreEqual(originalData, decompressedData);
         }
 
-        private ParallelCompressor MakeParallelCompressor(int coresNumber, int blockSize, byte[] header)
+        private ParallelCompressor MakeParallelCompressor(int coresNumber, int blockSize, byte[] header, Stream inputStream, Stream outputStream)
         {
             var inputQueue = new BlockingQueue<DataBlock>(coresNumber);
             var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
             var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
             var compressor = new Compressor();
-            var threadRunner = new ThreadRunner();
-            return new ParallelCompressor(coresNumber, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor, threadRunner);
+            
+            return new ParallelCompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
+        }
+
+        private ParallelDecompressor MakeParallelDecompressor(int coresNumber, int blockSize, byte[] header, Stream inputStream, Stream outputStream)
+        {
+            var inputQueue = new BlockingQueue<DataBlock>(coresNumber);
+            var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
+            var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
+            var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
+            var compressor = new Compressor();
+            
+            return new ParallelDecompressor(inputStream, outputStream, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
         }
     }
 }

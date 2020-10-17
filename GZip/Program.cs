@@ -49,27 +49,41 @@ namespace GZip
 
             var compressor = new Compressor();
             var threadRunner = new ThreadRunner();
-
-            var parallelCompressor = new ParallelCompressor(
-                coresNumber,
-                blockSize,
-                header,
-                inputQueue,
-                outputQueue,
-                dataBlocksPool,
-                byteArrayPool,
-                compressor,
-                threadRunner);
+            var jobRunner = new JobRunner(coresNumber, threadRunner);
 
             if (command == compressCommand)
-                parallelCompressor.CompressParallel(inputStream, outputStream);
+            {
+                var parallelCompressor = new ParallelCompressor(
+                    inputStream,
+                    outputStream,
+                    blockSize,
+                    header,
+                    inputQueue,
+                    outputQueue,
+                    dataBlocksPool,
+                    byteArrayPool,
+                    compressor);
+                jobRunner.RunParallel(parallelCompressor);
+            }
+
             if (command == decompressCommand)
-                parallelCompressor.DecompressParallel(inputStream, outputStream);
+            {
+                var parallelDecompressor = new ParallelDecompressor(
+                    inputStream,
+                    outputStream,
+                    header,
+                    inputQueue,
+                    outputQueue,
+                    dataBlocksPool,
+                    byteArrayPool,
+                    compressor);
+                jobRunner.RunParallel(parallelDecompressor);
+            }
 
             inputStream.Close();
             outputStream.Close();
 
-            var exceptions = parallelCompressor.GetRaisedExceptions();
+            var exceptions = jobRunner.GetRaisedExceptions();
             if (exceptions.Any())
             {
                 File.Delete(outputFile);
