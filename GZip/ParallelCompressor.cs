@@ -84,8 +84,6 @@ namespace GZip
 
         public void JobEnd()
         {
-            var dict = new Dictionary<int, DataBlock>();
-            int blockNumber = 0;
             var blocksCount = inputStream.Length / blockSize +
                               (inputStream.Length % blockSize == 0 ? 0 : 1);
 
@@ -94,32 +92,14 @@ namespace GZip
 
             while (outputQueue.Dequeue(out var dataBlock))
             {
-                dict.Add(dataBlock.Number, dataBlock);
-
-                //todo remove order
-                if (dict.ContainsKey(blockNumber))
-                {
-                    var currentBlock = dict[blockNumber];
-                    outputStream.Write(BitConverter.GetBytes(currentBlock.Number));
-                    outputStream.Write(BitConverter.GetBytes(currentBlock.Length));
-                    outputStream.Write(currentBlock.Data, 0, currentBlock.Length);
-                    outputStream.Write(BitConverter.GetBytes(HashCalculator.GetDataBlockHashCode(currentBlock.Data, currentBlock.Length, currentBlock.Number)));
-                    dict.Remove(blockNumber);
-                    byteArrayPool.Return(currentBlock.Data);
-                    dataBlocksPool.Return(currentBlock);
-                    blockNumber++;
-                }
-            }
-
-            foreach (var dataBlock in dict.OrderBy(x => x.Key).Select(x => x.Value))
-            {
                 outputStream.Write(BitConverter.GetBytes(dataBlock.Number));
                 outputStream.Write(BitConverter.GetBytes(dataBlock.Length));
                 outputStream.Write(dataBlock.Data, 0, dataBlock.Length);
-                byteArrayPool.Return(dataBlock.Data);
                 outputStream.Write(BitConverter.GetBytes(HashCalculator.GetDataBlockHashCode(dataBlock.Data, dataBlock.Length, dataBlock.Number)));
+                byteArrayPool.Return(dataBlock.Data);
                 dataBlocksPool.Return(dataBlock);
             }
+
             outputStream.Flush();
         }
 
