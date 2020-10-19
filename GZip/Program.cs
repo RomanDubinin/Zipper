@@ -3,6 +3,8 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using GZip.Compression;
+using GZip.Infrastructure;
 
 namespace GZip
 {

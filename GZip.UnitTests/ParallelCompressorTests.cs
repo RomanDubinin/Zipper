@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Buffers;
 using System.IO;
+using GZip.Compression;
+using GZip.Infrastructure;
 using NUnit.Framework;
 
 namespace GZip.UnitTests

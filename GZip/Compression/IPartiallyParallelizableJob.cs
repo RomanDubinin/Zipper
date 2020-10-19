@@ -1,4 +1,4 @@
-﻿namespace GZip
+﻿namespace GZip.Compression
 {
     public interface IPartiallyParallelizableJob
     {

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Threading;
 
-namespace GZip
+namespace GZip.Infrastructure
 {
     public class BlockingQueue<T> : IDisposable
     {

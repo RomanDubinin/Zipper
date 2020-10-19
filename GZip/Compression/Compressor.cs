@@ -1,8 +1,7 @@
-﻿using System;
-using System.IO;
+﻿using System.IO;
 using System.IO.Compression;
 
-namespace GZip
+namespace GZip.Compression
 {
     public class Compressor
     {

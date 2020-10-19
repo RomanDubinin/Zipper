@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
+using GZip.Infrastructure;
 
-namespace GZip
+namespace GZip.Compression
 {
     public class JobRunner
     {

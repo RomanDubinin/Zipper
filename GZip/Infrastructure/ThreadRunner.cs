@@ -2,7 +2,7 @@
 using System.Collections.Concurrent;
 using System.Threading;
 
-namespace GZip
+namespace GZip.Infrastructure
 {
     public class ThreadRunner
     {

@@ -1,3 +1,4 @@
+using GZip.Compression;
 using NUnit.Framework;
 
 namespace GZip.UnitTests

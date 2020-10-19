@@ -1,4 +1,4 @@
-﻿namespace GZip
+﻿namespace GZip.Infrastructure
 {
     public static class HashCalculator
     {

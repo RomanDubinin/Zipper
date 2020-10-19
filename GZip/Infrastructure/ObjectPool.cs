@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 
-namespace GZip
+namespace GZip.Infrastructure
 {
     public class ObjectPool<T>
     {

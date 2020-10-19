@@ -3,8 +3,9 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using GZip.Infrastructure;
 
-namespace GZip
+namespace GZip.Compression
 {
     public class ParallelDecompressor : IPartiallyParallelizableJob
     {
