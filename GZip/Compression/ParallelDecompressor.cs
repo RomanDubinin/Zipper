@@ -22,6 +22,9 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
+        private readonly byte[] longBuffer;
+        private readonly byte[] intBuffer;
+
         public ParallelDecompressor(Stream inputStream,
             Stream outputStream,
             byte[] compressorHeader,
@@ -39,6 +42,9 @@ namespace GZip.Compression
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
             this.compressor = compressor;
+
+            longBuffer = new byte[sizeof(long)];
+            intBuffer = new byte[sizeof(int)];
         }
 
         public void JobStart()
@@ -48,26 +54,16 @@ namespace GZip.Compression
             if (!header.SequenceEqual(compressorHeader))
                 throw new InvalidDataException("The archive entry was compressed using an unsupported compression method");
 
-            var blocksCountBytes = new byte[sizeof(long)];
-            inputStream.Read(blocksCountBytes, 0, sizeof(long));
-            var blocksCount = BitConverter.ToInt64(blocksCountBytes);
-
-            var blockNumberBytes = new byte[sizeof(int)];
-            var blockLengthBytes = new byte[sizeof(int)];
-            var blockHashCodeBytes = new byte[sizeof(int)];
+            var blocksCount = ReadLong(inputStream);
             for (var i = 0; i < blocksCount; i++)
             {
-                inputStream.Read(blockNumberBytes, 0, blockNumberBytes.Length);
-                var blockNumber = BitConverter.ToInt32(blockNumberBytes);
-
-                inputStream.Read(blockLengthBytes, 0, blockLengthBytes.Length);
-                var blockLength = BitConverter.ToInt32(blockLengthBytes);
+                var blockNumber = ReadInt(inputStream);
+                var blockLength = ReadInt(inputStream);
 
                 var data = byteArrayPool.Rent(blockLength);
                 inputStream.Read(data, 0, blockLength);
 
-                inputStream.Read(blockHashCodeBytes, 0, blockHashCodeBytes.Length);
-                var blockHashCode = BitConverter.ToInt32(blockHashCodeBytes);
+                var blockHashCode = ReadInt(inputStream);
 
                 var dataBlock = dataBlocksPool.Get();
                 dataBlock.Data = data;
@@ -135,6 +131,18 @@ namespace GZip.Compression
             outputQueue.Finish();
             inputStream.Close();
             outputStream.Close();
+        }
+
+        private int ReadInt(Stream stream)
+        {
+            stream.Read(intBuffer, 0, intBuffer.Length);
+            return BitConverter.ToInt32(intBuffer);
+        }
+
+        private long ReadLong(Stream stream)
+        {
+            stream.Read(longBuffer, 0, longBuffer.Length);
+            return BitConverter.ToInt64(longBuffer);
         }
     }
 }
