@@ -11,7 +11,7 @@ namespace GZip
     class Program
     {
         private static readonly string logFileName = "Log.txt";
-        private static readonly Type[] knownExceptions = new[] {typeof(InvalidDataException)};
+        private static readonly Type[] knownExceptions = new[] {typeof(InvalidDataException), typeof(FilesystemException)};
 
         private static readonly string compressCommand = "compress";
         private static readonly string decompressCommand = "decompress";
@@ -25,6 +25,11 @@ namespace GZip
 
         private static readonly string[] doReplaceCommands = {"Y", "y"};
         private static readonly string[] doNotReplaceCommands = { "N", "n" };
+
+        private static readonly Dictionary<string, long> filesystemMaxFileSize = new Dictionary<string, long>()
+        {
+            {"FAT32", (long) 4 * 1024 * 1024 * 1024 - 1}
+        };
 
         private static readonly int coresNumber = Environment.ProcessorCount;
         private static readonly int blockSize = 1024 * 1024;
@@ -70,6 +75,11 @@ namespace GZip
 
             if (command == decompressCommand)
             {
+                var drive = new DriveInfo(Directory.GetDirectoryRoot(outputFile));
+                var maxOutputFileSize = filesystemMaxFileSize.ContainsKey(drive.DriveFormat)
+                    ? filesystemMaxFileSize[drive.DriveFormat]
+                    : (long?)null;
+
                 var parallelDecompressor = new ParallelDecompressor(
                     inputStream,
                     outputStream,
@@ -79,7 +89,8 @@ namespace GZip
                     outputQueue,
                     dataBlocksPool,
                     byteArrayPool,
-                    compressor);
+                    compressor,
+                    maxOutputFileSize);
                 jobRunner.RunParallel(parallelDecompressor);
             }
 

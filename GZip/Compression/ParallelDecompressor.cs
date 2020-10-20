@@ -26,6 +26,8 @@ namespace GZip.Compression
         private readonly byte[] longBuffer;
         private readonly byte[] intBuffer;
 
+        private readonly long? filesystemMaximumFileSize;
+
         public ParallelDecompressor(Stream inputStream,
                                     Stream outputStream,
                                     int originalBlockSize,
@@ -34,7 +36,8 @@ namespace GZip.Compression
                                     BlockingQueue<DataBlock> outputQueue,
                                     ObjectPool<DataBlock> dataBlocksPool,
                                     ArrayPool<byte> byteArrayPool,
-                                    Compressor compressor)
+                                    Compressor compressor,
+                                    long? filesystemMaximumFileSize = null)
         {
             this.originalBlockSize = originalBlockSize;
             this.inputStream = inputStream;
@@ -45,6 +48,7 @@ namespace GZip.Compression
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
             this.compressor = compressor;
+            this.filesystemMaximumFileSize = filesystemMaximumFileSize;
 
             longBuffer = new byte[sizeof(long)];
             intBuffer = new byte[sizeof(int)];
@@ -58,6 +62,11 @@ namespace GZip.Compression
                 throw new InvalidDataException("The archive entry was compressed using an unsupported compression method");
 
             var originalFileSize = ReadLong(inputStream);
+            if (originalFileSize > filesystemMaximumFileSize)
+            {
+                throw new FilesystemException("File system does not supports files of such size.");
+            }
+
             var blocksCount = ReadLong(inputStream);
             for (var i = 0; i < blocksCount; i++)
             {
