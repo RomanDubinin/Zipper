@@ -45,6 +45,10 @@ namespace GZip
                 return 1;
             }
 
+            var directory = Path.GetDirectoryName(outputFile);
+            if (!string.IsNullOrEmpty(directory))
+                Directory.CreateDirectory(directory);
+
             var inputStream = new FileStream(inputFile, FileMode.Open);
             var outputStream = new FileStream(outputFile, FileMode.Create);
 
