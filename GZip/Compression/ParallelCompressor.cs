@@ -46,8 +46,7 @@ namespace GZip.Compression
 
         public void JobStart()
         {
-            var blocksCount = inputStream.Length / blockSize +
-                              (inputStream.Length % blockSize == 0 ? 0 : 1);
+            var blocksCount = GetBlocksCount();
             for (var i = 0; i < blocksCount; i++)
             {
                 var data = byteArrayPool.Rent(blockSize);
@@ -83,8 +82,7 @@ namespace GZip.Compression
 
         public void JobEnd()
         {
-            var blocksCount = inputStream.Length / blockSize +
-                              (inputStream.Length % blockSize == 0 ? 0 : 1);
+            var blocksCount = GetBlocksCount();
 
             outputStream.Write(compressorHeader);
             outputStream.Write(BitConverter.GetBytes(blocksCount));
@@ -108,6 +106,12 @@ namespace GZip.Compression
             outputQueue.Finish();
             inputStream.Close();
             outputStream.Close();
+        }
+
+        private long GetBlocksCount()
+        {
+            return inputStream.Length / blockSize +
+                   (inputStream.Length % blockSize == 0 ? 0 : 1);
         }
     }
 }
