@@ -54,6 +54,7 @@ namespace GZip.Compression
             if (!header.SequenceEqual(compressorHeader))
                 throw new InvalidDataException("The archive entry was compressed using an unsupported compression method");
 
+            var originalFileSize = ReadLong(inputStream);
             var blocksCount = ReadLong(inputStream);
             for (var i = 0; i < blocksCount; i++)
             {

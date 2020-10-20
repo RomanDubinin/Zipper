@@ -85,6 +85,7 @@ namespace GZip.Compression
             var blocksCount = GetBlocksCount();
 
             outputStream.Write(compressorHeader);
+            outputStream.Write(BitConverter.GetBytes(inputStream.Length));
             outputStream.Write(BitConverter.GetBytes(blocksCount));
 
             while (outputQueue.Dequeue(out var dataBlock))
