@@ -28,7 +28,7 @@ namespace GZip
 
         private static readonly int coresNumber = Environment.ProcessorCount;
         private static readonly int blockSize = 1024 * 1024;
-        private static readonly byte[] header = { 7, 7, 7 };
+        private static readonly byte[] header = { 71, 90, 105, 112, 84, 101, 115, 116 };
 
         static int Main(string[] args)
         {
