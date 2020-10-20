@@ -9,6 +9,7 @@ namespace GZip.Compression
 {
     public class ParallelDecompressor : IPartiallyParallelizableJob
     {
+        private readonly int originalBlockSize;
         private readonly Stream inputStream;
         private readonly Stream outputStream;
 
@@ -26,14 +27,16 @@ namespace GZip.Compression
         private readonly byte[] intBuffer;
 
         public ParallelDecompressor(Stream inputStream,
-            Stream outputStream,
-            byte[] compressorHeader,
-            BlockingQueue<DataBlock> inputQueue,
-            BlockingQueue<DataBlock> outputQueue,
-            ObjectPool<DataBlock> dataBlocksPool,
-            ArrayPool<byte> byteArrayPool,
-            Compressor compressor)
+                                    Stream outputStream,
+                                    int originalBlockSize,
+                                    byte[] compressorHeader,
+                                    BlockingQueue<DataBlock> inputQueue,
+                                    BlockingQueue<DataBlock> outputQueue,
+                                    ObjectPool<DataBlock> dataBlocksPool,
+                                    ArrayPool<byte> byteArrayPool,
+                                    Compressor compressor)
         {
+            this.originalBlockSize = originalBlockSize;
             this.inputStream = inputStream;
             this.outputStream = outputStream;
             this.compressorHeader = compressorHeader;
@@ -82,10 +85,10 @@ namespace GZip.Compression
         {
             while (inputQueue.Dequeue(out var dataBlock))
             {
-                var compressedData = byteArrayPool.Rent(dataBlock.Length * 2);
-                var compressedDataLen = compressor.Decompress(dataBlock.Data, dataBlock.Length, compressedData);
+                var decompressedData = byteArrayPool.Rent(originalBlockSize);
+                var compressedDataLen = compressor.Decompress(dataBlock.Data, dataBlock.Length, decompressedData);
                 byteArrayPool.Return(dataBlock.Data);
-                dataBlock.Data = compressedData;
+                dataBlock.Data = decompressedData;
                 dataBlock.Length = compressedDataLen;
                 if (!outputQueue.Enqueue(dataBlock))
                     return;

@@ -73,6 +73,7 @@ namespace GZip
                 var parallelDecompressor = new ParallelDecompressor(
                     inputStream,
                     outputStream,
+                    blockSize,
                     header,
                     inputQueue,
                     outputQueue,

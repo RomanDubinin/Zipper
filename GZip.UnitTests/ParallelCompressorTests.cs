@@ -57,7 +57,7 @@ namespace GZip.UnitTests
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
             var compressor = new Compressor();
             
-            return new ParallelDecompressor(inputStream, outputStream, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
+            return new ParallelDecompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
         }
     }
 }
