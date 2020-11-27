@@ -22,6 +22,7 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
+        private const int retryCount = 4;
 
         public ParallelCompressor(Stream inputStream,
                                   Stream outputStream,
@@ -65,8 +66,8 @@ namespace GZip.Compression
         {
             while (inputQueue.Dequeue(out var dataBlock))
             {
-                var compressedData = byteArrayPool.Rent(dataBlock.Length * 2);
-                var compressedDataLen = compressor.Compress(dataBlock.Data, dataBlock.Length, compressedData);
+                if (!TryCompress(dataBlock, out var compressedData, out var compressedDataLen))
+                    throw new InvalidDataException($"Cannot compress data block {dataBlock.Number}");
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlock.Data = compressedData;
                 dataBlock.Length = compressedDataLen;
@@ -107,6 +108,28 @@ namespace GZip.Compression
             outputQueue.Finish();
             inputStream.Close();
             outputStream.Close();
+        }
+
+        private bool TryCompress(DataBlock dataBlock, out byte[] compressedData, out int compressedDataLen)
+        {
+            var arrayLength = dataBlock.Length;
+            for (var i = 0; i < retryCount; i++)
+            {
+                try
+                {
+                    compressedData = byteArrayPool.Rent(arrayLength);
+                    compressedDataLen = compressor.Compress(dataBlock.Data, dataBlock.Length, compressedData);
+                    return true;
+                }
+                catch (ArgumentException)
+                {
+                    arrayLength *= 2;
+                }
+            }
+
+            compressedData = null;
+            compressedDataLen = 0;
+            return false;
         }
 
         private long GetBlocksCount()
