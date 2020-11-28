@@ -138,12 +138,10 @@ namespace GZip.Compression
             outputStream.Flush();
         }
 
-        public void Dispose()
+        public void EmergencyStop()
         {
             inputQueue.Finish();
             outputQueue.Finish();
-            inputStream.Close();
-            outputStream.Close();
         }
 
         private int ReadInt(Stream stream)

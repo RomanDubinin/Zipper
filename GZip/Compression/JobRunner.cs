@@ -20,13 +20,13 @@ namespace GZip.Compression
 
         public void RunParallel(IPartiallyParallelizableJob job)
         {
-            var readThread = threadRunner.RunWithExceptionHandling(job.JobStart, job.Dispose);
+            var readThread = threadRunner.RunWithExceptionHandling(job.JobStart, job.EmergencyStop);
             var compressors = new Thread[compressorsNumber];
             for (var i = 0; i < compressorsNumber; i++)
             {
-                compressors[i] = threadRunner.RunWithExceptionHandling(job.ParallelizableJob, job.Dispose);
+                compressors[i] = threadRunner.RunWithExceptionHandling(job.ParallelizableJob, job.EmergencyStop);
             }
-            var writeThread = threadRunner.RunWithExceptionHandling(job.JobEnd, job.Dispose);
+            var writeThread = threadRunner.RunWithExceptionHandling(job.JobEnd, job.EmergencyStop);
 
             readThread.Start();
             for (var i = 0; i < compressorsNumber; i++)

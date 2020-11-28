@@ -6,6 +6,6 @@
         void ParallelizableJob();
         void AfterAllParallelJobs();
         void JobEnd();
-        void Dispose();
+        void EmergencyStop();
     }
 }
