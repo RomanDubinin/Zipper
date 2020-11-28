@@ -21,10 +21,14 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
+        private readonly Action<decimal> showProgress;
+
         private readonly byte[] longBuffer;
         private readonly byte[] intBuffer;
 
         private readonly long? filesystemMaximumFileSize;
+
+        private long blocksCount;
 
         public ParallelDecompressor(Stream inputStream,
                                     Stream outputStream,
@@ -34,6 +38,7 @@ namespace GZip.Compression
                                     BlockingQueue<DataBlock> outputQueue,
                                     ObjectPool<DataBlock> dataBlocksPool,
                                     ArrayPool<byte> byteArrayPool,
+                                    Action<decimal> showProgress,
                                     long? filesystemMaximumFileSize = null)
         {
             this.originalBlockSize = originalBlockSize;
@@ -44,6 +49,7 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
+            this.showProgress = showProgress;
             this.filesystemMaximumFileSize = filesystemMaximumFileSize;
 
             longBuffer = new byte[sizeof(long)];
@@ -63,7 +69,7 @@ namespace GZip.Compression
                 throw new FilesystemException("File system does not supports files of such size.");
             }
 
-            var blocksCount = ReadLong(inputStream);
+            blocksCount = ReadLong(inputStream);
             for (var i = 0; i < blocksCount; i++)
             {
                 var blockNumber = ReadInt(inputStream);
@@ -121,6 +127,8 @@ namespace GZip.Compression
                     dict.Remove(blockNumber);
                     byteArrayPool.Return(currentBlock.Data);
                     dataBlocksPool.Return(currentBlock);
+
+                    showProgress((decimal)(blockNumber+1) / blocksCount);
                     blockNumber++;
                 }
             }
@@ -130,6 +138,9 @@ namespace GZip.Compression
                 outputStream.Write(dataBlock.Data, 0, dataBlock.Length);
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlocksPool.Return(dataBlock);
+
+                showProgress((decimal)(blockNumber + 1) / blocksCount);
+                blockNumber++;
             }
             outputStream.Flush();
         }

@@ -71,7 +71,8 @@ namespace GZip
                     inputQueue,
                     outputQueue,
                     dataBlocksPool,
-                    byteArrayPool);
+                    byteArrayPool,
+                    x => ShowProgress("Compressing", x));
                 jobRunner.RunParallel(parallelCompressor);
             }
 
@@ -91,6 +92,7 @@ namespace GZip
                     outputQueue,
                     dataBlocksPool,
                     byteArrayPool,
+                    x => ShowProgress("Decompressing", x),
                     maxOutputFileSize);
                 jobRunner.RunParallel(parallelDecompressor);
             }
@@ -107,8 +109,24 @@ namespace GZip
                 return 1;
             }
 
+            Console.WriteLine();
             Console.WriteLine("Done");
             return 0;
+        }
+
+        private static void ShowProgress(string command, decimal progress)
+        {
+            Console.Write($"{command}: {progress.ToString("P1").PadRight(6, ' ')} ");
+
+            Console.Write("[");
+            var progressBarLen = Console.WindowWidth - Console.CursorLeft - 2;
+            var progressInChars = progress * progressBarLen;
+            var i = 0;
+            for (; i < progressInChars; i++)
+                Console.Write("#");
+            for (; i < progressBarLen; i++)
+                Console.Write("-");
+            Console.Write("]\r");
         }
 
         private static void PrintErrorMessage(List<Exception> exceptions)

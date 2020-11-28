@@ -20,6 +20,8 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
+        private readonly Action<decimal> showProgress;
+
         private const int retryCount = 4;
 
         public ParallelCompressor(Stream inputStream,
@@ -29,7 +31,8 @@ namespace GZip.Compression
                                   BlockingQueue<DataBlock> inputQueue,
                                   BlockingQueue<DataBlock> outputQueue,
                                   ObjectPool<DataBlock> dataBlocksPool,
-                                  ArrayPool<byte> byteArrayPool)
+                                  ArrayPool<byte> byteArrayPool,
+                                  Action<decimal> showProgress)
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
@@ -39,6 +42,7 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
+            this.showProgress = showProgress;
         }
 
         public void JobStart()
@@ -64,6 +68,7 @@ namespace GZip.Compression
             {
                 if (!TryCompress(dataBlock, out var compressedData, out var compressedDataLen))
                     throw new InvalidDataException($"Cannot compress data block {dataBlock.Number}");
+
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlock.Data = compressedData;
                 dataBlock.Length = compressedDataLen;
@@ -85,6 +90,7 @@ namespace GZip.Compression
             outputStream.Write(BitConverter.GetBytes(inputStream.Length));
             outputStream.Write(BitConverter.GetBytes(blocksCount));
 
+            var blocksCounter = 1m;
             while (outputQueue.Dequeue(out var dataBlock))
             {
                 outputStream.Write(BitConverter.GetBytes(dataBlock.Number));
@@ -93,6 +99,9 @@ namespace GZip.Compression
                 outputStream.Write(BitConverter.GetBytes(HashCalculator.GetDataBlockHashCode(dataBlock.Data, dataBlock.Length, dataBlock.Number)));
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlocksPool.Return(dataBlock);
+
+                showProgress(blocksCounter / blocksCount);
+                blocksCounter++;
             }
 
             outputStream.Flush();
