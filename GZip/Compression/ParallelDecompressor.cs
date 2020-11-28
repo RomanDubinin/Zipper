@@ -19,8 +19,6 @@ namespace GZip.Compression
         private readonly ObjectPool<DataBlock> dataBlocksPool;
         private readonly ArrayPool<byte> byteArrayPool;
 
-        private readonly Compressor compressor;
-
         private readonly byte[] compressorHeader;
 
         private readonly byte[] longBuffer;
@@ -36,7 +34,6 @@ namespace GZip.Compression
                                     BlockingQueue<DataBlock> outputQueue,
                                     ObjectPool<DataBlock> dataBlocksPool,
                                     ArrayPool<byte> byteArrayPool,
-                                    Compressor compressor,
                                     long? filesystemMaximumFileSize = null)
         {
             this.originalBlockSize = originalBlockSize;
@@ -47,7 +44,6 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
-            this.compressor = compressor;
             this.filesystemMaximumFileSize = filesystemMaximumFileSize;
 
             longBuffer = new byte[sizeof(long)];
@@ -95,7 +91,7 @@ namespace GZip.Compression
             while (inputQueue.Dequeue(out var dataBlock))
             {
                 var decompressedData = byteArrayPool.Rent(originalBlockSize);
-                var compressedDataLen = compressor.Decompress(dataBlock.Data, dataBlock.Length, decompressedData);
+                var compressedDataLen = Compressor.Decompress(dataBlock.Data, dataBlock.Length, decompressedData);
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlock.Data = decompressedData;
                 dataBlock.Length = compressedDataLen;

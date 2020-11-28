@@ -18,8 +18,6 @@ namespace GZip.Compression
         private readonly ObjectPool<DataBlock> dataBlocksPool;
         private readonly ArrayPool<byte> byteArrayPool;
 
-        private readonly Compressor compressor;
-
         private readonly byte[] compressorHeader;
 
         private const int retryCount = 4;
@@ -31,8 +29,7 @@ namespace GZip.Compression
                                   BlockingQueue<DataBlock> inputQueue,
                                   BlockingQueue<DataBlock> outputQueue,
                                   ObjectPool<DataBlock> dataBlocksPool,
-                                  ArrayPool<byte> byteArrayPool,
-                                  Compressor compressor)
+                                  ArrayPool<byte> byteArrayPool)
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
@@ -42,7 +39,6 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
-            this.compressor = compressor;
         }
 
         public void JobStart()
@@ -116,7 +112,7 @@ namespace GZip.Compression
                 try
                 {
                     compressedData = byteArrayPool.Rent(arrayLength);
-                    compressedDataLen = compressor.Compress(dataBlock.Data, dataBlock.Length, compressedData);
+                    compressedDataLen = Compressor.Compress(dataBlock.Data, dataBlock.Length, compressedData);
                     return true;
                 }
                 catch (ArgumentException)

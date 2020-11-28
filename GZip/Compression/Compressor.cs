@@ -3,9 +3,9 @@ using System.IO.Compression;
 
 namespace GZip.Compression
 {
-    public class Compressor
+    public static class Compressor
     {
-        public int Compress(byte[] data, int length, byte[] compressedData)
+        public static int Compress(byte[] data, int length, byte[] compressedData)
         {
             using var compressedStream = new MemoryStream();
             using var compressionStream = new GZipStream(compressedStream, CompressionMode.Compress, true);
@@ -17,7 +17,7 @@ namespace GZip.Compression
             return (int) compressedStream.Length;
         }
 
-        public int Decompress(byte[] data, int length, byte[] decompressedData)
+        public static int Decompress(byte[] data, int length, byte[] decompressedData)
         {
             using var originalStream = new MemoryStream(data, 0, length);
             using var gzipStream = new GZipStream(originalStream, CompressionMode.Decompress);

@@ -44,9 +44,8 @@ namespace GZip.UnitTests
             var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
             var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
-            var compressor = new Compressor();
-            
-            return new ParallelCompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
+
+            return new ParallelCompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool);
         }
 
         private ParallelDecompressor MakeParallelDecompressor(int coresNumber, int blockSize, byte[] header, Stream inputStream, Stream outputStream)
@@ -55,9 +54,8 @@ namespace GZip.UnitTests
             var outputQueue = new BlockingQueue<DataBlock>(coresNumber);
             var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
-            var compressor = new Compressor();
-            
-            return new ParallelDecompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool, compressor);
+
+            return new ParallelDecompressor(inputStream, outputStream, blockSize, header, inputQueue, outputQueue, dataBlocksPool, byteArrayPool);
         }
     }
 }

@@ -58,7 +58,6 @@ namespace GZip
             var dataBlocksPool = new ObjectPool<DataBlock>(() => new DataBlock());
             var byteArrayPool = ArrayPool<byte>.Create(blockSize * 2, coresNumber * 2);
 
-            var compressor = new Compressor();
             var threadRunner = new ThreadRunner();
             var jobRunner = new JobRunner(coresNumber, threadRunner);
 
@@ -72,8 +71,7 @@ namespace GZip
                     inputQueue,
                     outputQueue,
                     dataBlocksPool,
-                    byteArrayPool,
-                    compressor);
+                    byteArrayPool);
                 jobRunner.RunParallel(parallelCompressor);
             }
 
@@ -93,7 +91,6 @@ namespace GZip
                     outputQueue,
                     dataBlocksPool,
                     byteArrayPool,
-                    compressor,
                     maxOutputFileSize);
                 jobRunner.RunParallel(parallelDecompressor);
             }
