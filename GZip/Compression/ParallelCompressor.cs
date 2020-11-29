@@ -20,9 +20,9 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
-        private readonly Action<decimal> showProgress;
-
         private const int retryCount = 4;
+
+        private volatile float progress;
 
         public ParallelCompressor(Stream inputStream,
                                   Stream outputStream,
@@ -31,8 +31,7 @@ namespace GZip.Compression
                                   BlockingQueue<DataBlock> inputQueue,
                                   BlockingQueue<DataBlock> outputQueue,
                                   ObjectPool<DataBlock> dataBlocksPool,
-                                  ArrayPool<byte> byteArrayPool,
-                                  Action<decimal> showProgress)
+                                  ArrayPool<byte> byteArrayPool)
         {
             this.inputStream = inputStream;
             this.outputStream = outputStream;
@@ -42,7 +41,6 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
-            this.showProgress = showProgress;
         }
 
         public void JobStart()
@@ -90,7 +88,7 @@ namespace GZip.Compression
             outputStream.Write(BitConverter.GetBytes(inputStream.Length));
             outputStream.Write(BitConverter.GetBytes(blocksCount));
 
-            var blocksCounter = 1m;
+            long blocksCounter = 1;
             while (outputQueue.Dequeue(out var dataBlock))
             {
                 outputStream.Write(BitConverter.GetBytes(dataBlock.Number));
@@ -100,7 +98,7 @@ namespace GZip.Compression
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlocksPool.Return(dataBlock);
 
-                showProgress(blocksCounter / blocksCount);
+                progress = (float)blocksCounter / blocksCount;
                 blocksCounter++;
             }
 
@@ -111,6 +109,11 @@ namespace GZip.Compression
         {
             inputQueue.Finish();
             outputQueue.Finish();
+        }
+
+        public float GetProgress()
+        {
+            return progress;
         }
 
         private bool TryCompress(DataBlock dataBlock, out byte[] compressedData, out int compressedDataLen)

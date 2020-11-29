@@ -7,5 +7,6 @@
         void AfterAllParallelJobs();
         void JobEnd();
         void EmergencyStop();
+        float GetProgress();
     }
 }

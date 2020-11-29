@@ -21,14 +21,13 @@ namespace GZip.Compression
 
         private readonly byte[] compressorHeader;
 
-        private readonly Action<decimal> showProgress;
-
         private readonly byte[] longBuffer;
         private readonly byte[] intBuffer;
 
         private readonly long? filesystemMaximumFileSize;
 
         private long blocksCount;
+        private volatile float progress;
 
         public ParallelDecompressor(Stream inputStream,
                                     Stream outputStream,
@@ -38,7 +37,6 @@ namespace GZip.Compression
                                     BlockingQueue<DataBlock> outputQueue,
                                     ObjectPool<DataBlock> dataBlocksPool,
                                     ArrayPool<byte> byteArrayPool,
-                                    Action<decimal> showProgress,
                                     long? filesystemMaximumFileSize = null)
         {
             this.originalBlockSize = originalBlockSize;
@@ -49,7 +47,6 @@ namespace GZip.Compression
             this.outputQueue = outputQueue;
             this.dataBlocksPool = dataBlocksPool;
             this.byteArrayPool = byteArrayPool;
-            this.showProgress = showProgress;
             this.filesystemMaximumFileSize = filesystemMaximumFileSize;
 
             longBuffer = new byte[sizeof(long)];
@@ -113,8 +110,8 @@ namespace GZip.Compression
 
         public void JobEnd()
         {
-            var dict = new Dictionary<int, DataBlock>();
-            int blockNumber = 0;
+            var dict = new Dictionary<long, DataBlock>();
+            long blockNumber = 0;
 
             while (outputQueue.Dequeue(out var dataBlock))
             {
@@ -128,7 +125,7 @@ namespace GZip.Compression
                     byteArrayPool.Return(currentBlock.Data);
                     dataBlocksPool.Return(currentBlock);
 
-                    showProgress((decimal)(blockNumber+1) / blocksCount);
+                    progress = (float)(blockNumber+1) / blocksCount;
                     blockNumber++;
                 }
             }
@@ -139,7 +136,7 @@ namespace GZip.Compression
                 byteArrayPool.Return(dataBlock.Data);
                 dataBlocksPool.Return(dataBlock);
 
-                showProgress((decimal)(blockNumber + 1) / blocksCount);
+                progress = (float)(blockNumber + 1) / blocksCount;
                 blockNumber++;
             }
             outputStream.Flush();
@@ -149,6 +146,11 @@ namespace GZip.Compression
         {
             inputQueue.Finish();
             outputQueue.Finish();
+        }
+
+        public float GetProgress()
+        {
+            return progress;
         }
 
         private int ReadInt(Stream stream)

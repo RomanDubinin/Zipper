@@ -3,6 +3,8 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
 using GZip.Compression;
 using GZip.Infrastructure;
 
@@ -35,6 +37,8 @@ namespace GZip
         private static readonly int blockSize = 1024 * 1024;
         private static readonly byte[] header = { 71, 90, 105, 112, 84, 101, 115, 116 };
 
+        private static StringBuilder progressStringBuilder = new StringBuilder(500);
+
         static int Main(string[] args)
         {
             var (error, command, inputFile, outputFile) = ParseCommandLineArguments(args);
@@ -60,10 +64,11 @@ namespace GZip
 
             var threadRunner = new ThreadRunner();
             var jobRunner = new JobRunner(coresNumber, threadRunner);
+            IPartiallyParallelizableJob job;
 
             if (command == compressCommand)
             {
-                var parallelCompressor = new ParallelCompressor(
+                job = new ParallelCompressor(
                     inputStream,
                     outputStream,
                     blockSize,
@@ -71,19 +76,16 @@ namespace GZip
                     inputQueue,
                     outputQueue,
                     dataBlocksPool,
-                    byteArrayPool,
-                    x => ShowProgress("Compressing", x));
-                jobRunner.RunParallel(parallelCompressor);
+                    byteArrayPool);
             }
-
-            if (command == decompressCommand)
+            else
             {
                 var drive = new DriveInfo(Directory.GetDirectoryRoot(outputFile));
                 var maxOutputFileSize = filesystemMaxFileSize.ContainsKey(drive.DriveFormat)
                     ? filesystemMaxFileSize[drive.DriveFormat]
                     : (long?)null;
 
-                var parallelDecompressor = new ParallelDecompressor(
+                job = new ParallelDecompressor(
                     inputStream,
                     outputStream,
                     blockSize,
@@ -92,10 +94,10 @@ namespace GZip
                     outputQueue,
                     dataBlocksPool,
                     byteArrayPool,
-                    x => ShowProgress("Decompressing", x),
                     maxOutputFileSize);
-                jobRunner.RunParallel(parallelDecompressor);
             }
+            using var timer = new Timer(x => ShowProgress($"{command}ing", job.GetProgress()), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(100));
+            jobRunner.RunParallel(job);
 
             inputStream.Close();
             outputStream.Close();
@@ -109,24 +111,26 @@ namespace GZip
                 return 1;
             }
 
+            ShowProgress($"{command}ing", 1);
             Console.WriteLine();
             Console.WriteLine("Done");
             return 0;
         }
 
-        private static void ShowProgress(string command, decimal progress)
+        private static void ShowProgress(string command, float progress)
         {
-            Console.Write($"{command}: {progress.ToString("P1").PadRight(6, ' ')} ");
-
-            Console.Write("[");
-            var progressBarLen = Console.WindowWidth - Console.CursorLeft - 2;
+            progressStringBuilder.Append($"{command}: {progress.ToString("P1").PadRight(6, ' ')} ");
+            progressStringBuilder.Append("[");
+            var progressBarLen = Console.WindowWidth - progressStringBuilder.Length - 2;
             var progressInChars = progress * progressBarLen;
             var i = 0;
             for (; i < progressInChars; i++)
-                Console.Write("#");
+                progressStringBuilder.Append("#");
             for (; i < progressBarLen; i++)
-                Console.Write("-");
-            Console.Write("]\r");
+                progressStringBuilder.Append("-");
+            progressStringBuilder.Append("]");
+            Console.Write($"\r{progressStringBuilder}");
+            progressStringBuilder.Clear();
         }
 
         private static void PrintErrorMessage(List<Exception> exceptions)
